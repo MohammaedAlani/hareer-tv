@@ -15,7 +15,9 @@ Built with a soft pink, lavender, and mint design, large picture cards, and TV-r
 - Asks a simple “how many stars?” puzzle before exiting through the app.
 - Supports Android lock-task mode on appropriately configured devices.
 
-This repository contains the **Android app, a landing page, and a small SQLite catalog backend**. You supply the video files and images through S3 or another media host. No videos or video downloader are bundled. It does not play YouTube watch-page links.
+This repository contains the **Android app, a landing page, and a small SQLite catalog backend**. You supply the video files and images through S3 or another media host. No videos are bundled. The backend can queue permitted YouTube links, download them one at a time, upload to S3, and publish completed videos to the app. The Android player uses the stored files, not YouTube watch pages.
+
+[Import links & configure S3](docs/IMPORTS.md) · [Admin page](https://tv.nawaa.app/admin)
 
 [Download the signed APK](https://github.com/MohammaedAlani/hareer-tv/releases/latest) · [Deploy to Kubernetes](docs/DEPLOYMENT.md) · [Build releases locally](docs/RELEASING.md)
 

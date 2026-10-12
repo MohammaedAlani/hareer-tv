@@ -18,7 +18,7 @@ Before opening a pull request, run:
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 ```
 
-Run `python3 -m unittest discover -s backend -p 'test_*.py'` for backend changes and `node --check site/app.js` for landing-page JavaScript. APK releases are built locally, never by GitHub Actions.
+Install `backend/requirements.txt` in a Python 3.12+ virtual environment. Run `python3 -m unittest discover -s backend -p 'test_*.py'` for backend changes and `node --check site/app.js` and `node --check site/admin/admin.js` for website JavaScript. Queue tests use fake storage/downloaders and a synthetic local FFmpeg clip; never add production videos as test fixtures. APK releases are built locally, never by GitHub Actions.
 
 Add focused tests when behavior changes. For UI changes, also exercise the D-pad and provide a screenshot. For playback changes, use media you own or are permitted to use; check pause/resume, Back, failed playback, and leaving/reopening the app. For kiosk changes, use a disposable emulator or dedicated test device and verify both Home blocking and exit after solving the puzzle.
 

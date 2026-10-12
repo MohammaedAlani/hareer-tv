@@ -47,6 +47,9 @@ jobs:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      - name: Install backend dependencies
+        run: python3 -m pip install -r backend/requirements.txt
+
       - name: Test catalog backend
         run: python3 -m unittest discover -s backend -p 'test_*.py'
 

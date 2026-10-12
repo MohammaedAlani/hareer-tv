@@ -59,6 +59,12 @@ class CatalogServerTest(unittest.TestCase):
         with server.connect(self.db) as db:
             db.executemany('INSERT INTO videos(title,image_url,video_url) VALUES(?,?,?)',[('story','https://a.example/a.jpg','https://a.example/a.mp4')]*300)
         self.assertEqual(self.request('/api/admin/videos','POST',self.video(),True)[0],409)
+    def test_import_routes_require_auth_and_configuration(self):
+        self.assertEqual(self.request('/api/admin/imports')[0],401)
+        self.assertEqual(self.request('/api/admin/imports','POST',{'urls':['https://youtu.be/4mQGIyPD0Qs']})[0],401)
+        code,_,body=self.request('/api/admin/imports',auth=True)
+        self.assertEqual(code,200);self.assertFalse(json.loads(body)['enabled'])
+        self.assertEqual(self.request('/api/admin/imports','POST',{'urls':['https://youtu.be/4mQGIyPD0Qs']},True)[0],503)
     def test_health_and_head(self):
         self.assertEqual(self.request('/healthz')[0],200)
         code,headers,body=self.request('/videos.json','HEAD'); self.assertEqual(code,200); self.assertEqual(body,b'')

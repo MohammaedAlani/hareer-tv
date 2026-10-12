@@ -14,3 +14,5 @@ Include the affected revision, Android/device version, reproduction steps, and i
 - Removing a catalog entry does not revoke an existing video URL or stop buffered playback.
 - Debug builds permit cleartext HTTP. Release builds require HTTPS.
 - No signing credentials or permanent API secrets belong in the repository or APK.
+
+YouTube imports accept individual HTTPS video links from an explicit hostname allowlist. Storage keys remain server-side. The public media route issues short-lived signed S3 redirects only for currently published catalog entries; previously issued URLs remain valid until expiry. Keep admin tokens private and bypass CDN caching for admin/API/media responses.

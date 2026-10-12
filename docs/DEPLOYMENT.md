@@ -11,7 +11,7 @@ The deployment serves:
 | `/api/admin/videos` | Bearer-token-protected catalog management |
 | `/healthz` | Kubernetes health check |
 
-The official APK uses `https://tv.nawaa.app/videos.json`. The first catalog is empty. The backend stores only video metadata in SQLite; S3 stores your media. It does not download YouTube videos or upload media to S3.
+The official APK uses `https://tv.nawaa.app/videos.json`. The first catalog is empty. The backend stores only video metadata in SQLite; S3 stores your media. It also supports a persistent, sequential YouTube import queue; see [IMPORTS.md](IMPORTS.md) for storage configuration and the admin page.
 
 ## Release flow
 
@@ -43,7 +43,7 @@ Use the commit tag you tested, rather than a mutable `latest` tag. For an amd64 
 
 ## Kubernetes setup
 
-The template in `deploy/kubernetes.yaml` contains a namespace, 1 GiB PVC, a single-replica deployment, service, and ingress for `tv.nawaa.app`.
+The template in `deploy/kubernetes.yaml` contains a namespace, 10 GiB PVC, a single-replica deployment, service, and ingress for `tv.nawaa.app`.
 
 First create the namespace and an administrator secret:
 
@@ -79,11 +79,9 @@ Point the DNS record for `tv.nawaa.app` to your Kubernetes ingress. If proxying 
 
 Bypass CDN caching for `/videos.json`, `/api/*`, and `/healthz`; the API also sends `Cache-Control: no-store`. Static assets and versioned APKs may be cached. Keep `/api/admin/*` restricted to your administrative access where possible and preserve the `Authorization` header through the proxy. Configure request limits/timeouts on your ingress for internet exposure.
 
-Upload each video and thumbnail using your existing S3 tools. Add their **HTTPS media delivery URLs** to the catalog. The Android app fetches these URLs directly; the backend needs no S3 access key. S3 credentials belong in your storage/deployment tooling, never in the APK or the public repo.
+For automatic YouTube-link imports, configure S3 using [IMPORTS.md](IMPORTS.md). The worker uploads video and thumbnail files to a private bucket. Stable `/media/*` URLs redirect to fresh signed S3 URLs. Bypass CDN caching for those redirects.
 
-A private S3 API endpoint is not a public video URL. Use your existing authenticated media delivery service, CDN/public object URL for content intended to be public, or presigned URLs. Presigned URLs expire: this simple backend stores them as supplied and does not refresh signatures, so long-lived catalog entries should use a suitable stable delivery URL. Do not expose a private bucket merely to make the example work.
-
-You can keep one domain by routing `/media/*` to your storage gateway/CDN separately, while `/`, `/downloads/*`, `/videos.json`, and `/api/*` go to this service. Do not proxy private S3 requests without implementing the required signing. Alternatively, use your storage provider's existing HTTPS delivery hostname in catalog URLs.
+Existing manually supplied media URLs are still supported. The server does not refresh presigned URLs entered manually, so use stable delivery URLs for those entries. S3 credentials stay on the backend; they never go into the APK or source repository.
 
 Use `video/mp4` and byte-range support for MP4 delivery. The backend is a metadata API, not a video streaming proxy. The catalog and media links are public to anyone who can reach `/videos.json`; there is no per-family account/access system in this first version.
 
@@ -133,7 +131,7 @@ curl --fail-with-body -X DELETE https://tv.nawaa.app/api/admin/videos/1 \
   -H "Authorization: Bearer $HAREER_ADMIN_TOKEN"
 ```
 
-Every added entry is immediately in the public catalog; there is no separate approval state or admin web UI. Entries appear in insertion order. Up to 300 entries are accepted. Removing an entry does not stop playback already underway or revoke its S3 URL.
+Every added entry is immediately in the public catalog; there is no separate approval state. A link-import page is available at `/admin`. Entries appear in insertion order. Up to 300 entries are accepted. Removing an entry does not stop playback already underway or revoke its S3 URL.
 
 ## Verify and maintain
 

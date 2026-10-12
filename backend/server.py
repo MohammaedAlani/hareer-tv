@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Hareer TV catalog + static website. TLS is terminated by the ingress."""
-from contextlib import contextmanager
 import hmac
 import json
 import os
@@ -9,26 +8,8 @@ import re
 import sqlite3
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, unquote
-
-
-@contextmanager
-def connect(database):
-    connection = sqlite3.connect(database, timeout=5)
-    connection.row_factory = sqlite3.Row
-    try:
-        yield connection
-        connection.commit()
-    except Exception:
-        connection.rollback()
-        raise
-    finally:
-        connection.close()
-
-
-def initialize(database):
-    Path(database).parent.mkdir(parents=True, exist_ok=True)
-    with connect(database) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS videos (id INTEGER PRIMARY KEY, title TEXT NOT NULL, image_url TEXT NOT NULL, video_url TEXT NOT NULL)')
+from backend.database import connect, initialize
+from backend import imports
 
 
 def validate_video(value):
@@ -51,7 +32,7 @@ def validate_video(value):
     return tuple(values)
 
 
-def make_handler(database, site, admin_token):
+def make_handler(database, site, admin_token, storage=None):
     site = Path(site).resolve()
     class Handler(SimpleHTTPRequestHandler):
         extensions_map = {**SimpleHTTPRequestHandler.extensions_map, '.apk': 'application/vnd.android.package-archive'}
@@ -59,6 +40,8 @@ def make_handler(database, site, admin_token):
             super().__init__(*args, directory=str(site), **kwargs)
 
         def end_headers(self):
+            if urlsplit(getattr(self,'path','')).path.startswith('/admin'):
+                self.send_header('Cache-Control','no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
             self.send_header('X-Frame-Options', 'DENY')
@@ -98,8 +81,31 @@ def make_handler(database, site, admin_token):
                 if path == '/api/admin/videos':
                     if self.authorized(): self.send_json(200, self.catalog(True), head)
                     return
+                if path == '/api/admin/imports':
+                    if self.authorized(): self.send_json(200, {'enabled': storage is not None, 'jobs': imports.jobs(database)}, head)
+                    return
+                media = re.fullmatch(r'/media/([0-9a-f]{32})', path)
+                if media:
+                    if storage is None: return self.send_json(503, {'error': 'Media storage is not configured'}, head)
+                    with connect(database) as db:
+                        row = db.execute('SELECT m.object_key FROM media m JOIN videos v ON v.id=m.video_id WHERE m.id=? AND (v.video_url=? OR v.image_url=?)',
+                            (media.group(1), storage.base_url+path, storage.base_url+path)).fetchone()
+                    if row is None: return self.send_error(404)
+                    try: destination = storage.signed_url(row['object_key'])
+                    except Exception: return self.send_json(503, {'error': 'Media temporarily unavailable'}, head)
+                    self.send_response(302)
+                    self.send_header('Location', destination)
+                    self.send_header('Cache-Control', 'no-store')
+                    self.send_header('Content-Length', '0')
+                    self.end_headers()
+                    return
+                if path in ('/admin','/admin/'):
+                    self.path = '/admin/index.html'
+                    if head: super().do_HEAD()
+                    else: super().do_GET()
+                    return
                 decoded = unquote(path)
-                allowed = decoded in ('/','/index.html','/styles.css','/app.js') or re.fullmatch(r'/(assets|downloads)/[a-zA-Z0-9_.-]+',decoded)
+                allowed = decoded in ('/','/index.html','/styles.css','/app.js','/admin/admin.js','/admin/admin.css') or re.fullmatch(r'/(assets|downloads)/[a-zA-Z0-9_.-]+',decoded)
                 if not allowed: return self.send_error(404)
                 self.path = path
                 if head: super().do_HEAD()
@@ -116,6 +122,24 @@ def make_handler(database, site, admin_token):
         def do_DELETE(self): self.mutate('DELETE')
         def mutate(self, method):
             path = urlsplit(self.path).path
+            if method == 'POST' and (path == '/api/admin/imports' or re.fullmatch(r'/api/admin/imports/[1-9][0-9]*/retry',path)):
+                if not self.authorized(): return
+                if storage is None: return self.send_json(503, {'error': 'Set the S3 environment variables and PUBLIC_BASE_URL to enable imports.'})
+                try:
+                    if path.endswith('/retry'):
+                        imports.retry(database,int(path.split('/')[-2]))
+                        return self.send_json(202, {'status': 'queued'})
+                    if self.headers.get_content_type() != 'application/json': return self.send_json(415, {'error': 'Use application/json'})
+                    size = int(self.headers.get('Content-Length','0'))
+                    if not 1 <= size <= 32768: return self.send_json(413, {'error': 'Request is too large or empty'})
+                    body = json.loads(self.rfile.read(size))
+                    if not isinstance(body,dict): raise ValueError('Expected a JSON object')
+                    result = imports.enqueue(database,body.get('urls'))
+                    return self.send_json(202, {'jobs': result})
+                except (ValueError,TypeError,OverflowError):
+                    return self.send_json(400, {'error': 'Invalid request, queue full, or job cannot be retried. Use 1–50 HTTPS YouTube video links.'})
+                except sqlite3.Error:
+                    return self.send_json(503, {'error': 'Queue temporarily unavailable'})
             match = re.fullmatch(r'/api/admin/videos/([1-9][0-9]*)', path)
             if not ((method == 'POST' and path == '/api/admin/videos') or (method in ('PUT','DELETE') and match)):
                 return self.send_json(404, {'error': 'Not found'})
@@ -139,7 +163,9 @@ def make_handler(database, site, admin_token):
                         result = {'id': cursor.lastrowid}
                     else:
                         video_id = int(match.group(1))
-                        if method == 'DELETE': cursor = connection.execute('DELETE FROM videos WHERE id=?', (video_id,))
+                        if method == 'DELETE':
+                            connection.execute('DELETE FROM media WHERE video_id=?', (video_id,))
+                            cursor = connection.execute('DELETE FROM videos WHERE id=?', (video_id,))
                         else: cursor = connection.execute('UPDATE videos SET title=?,image_url=?,video_url=? WHERE id=?', (*values,video_id))
                         if cursor.rowcount == 0: return self.send_json(404, {'error': 'Video not found'})
                         result = {'id': video_id, 'deleted': method == 'DELETE'}
@@ -165,7 +191,26 @@ if __name__ == '__main__':
     if len(token) < 32: raise SystemExit('ADMIN_TOKEN must be at least 32 characters')
     database = os.environ.get('DATABASE_PATH','/data/hareer.sqlite3')
     initialize(database)
-    handler = make_handler(database, os.environ.get('SITE_DIR',str(Path(__file__).resolve().parents[1]/'site')),token)
+    from backend.storage import Storage, configured
+    storage = None
+    if configured():
+        try: storage = Storage()
+        except Exception: print('Invalid S3 configuration; imports disabled',flush=True)
+    worker = imports.ImportWorker(database,storage) if storage is not None else None
+    if worker: worker.start()
+    handler = make_handler(database, os.environ.get('SITE_DIR',str(Path(__file__).resolve().parents[1]/'site')),token,storage)
     server = ThreadingHTTPServer(('0.0.0.0', int(os.environ.get('PORT','8080'))),handler)
     print('Hareer TV listening on port '+str(server.server_port),flush=True)
-    server.serve_forever()
+    import signal
+    import threading
+    def shutdown(signum, frame):
+        if worker: worker.stop.set()
+        threading.Thread(target=server.shutdown,daemon=True).start()
+    signal.signal(signal.SIGTERM,shutdown)
+    signal.signal(signal.SIGINT,shutdown)
+    try: server.serve_forever()
+    finally:
+        server.server_close()
+        if worker:
+            worker.stop.set()
+            worker.thread.join(timeout=20)

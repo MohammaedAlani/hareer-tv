@@ -1,7 +1,9 @@
 **
 !Dockerfile
 !backend/
-!backend/server.py
+!backend/*.py
+!backend/requirements.txt
+backend/test_*.py
 !site/
 !site/**
 !scripts/

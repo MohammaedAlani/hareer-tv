@@ -12,7 +12,7 @@ spec:
   accessModes: [ReadWriteOnce]
   resources:
     requests:
-      storage: 1Gi
+      storage: 10Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -49,6 +49,12 @@ spec:
                 secretKeyRef:
                   name: hareer-admin
                   key: token
+            - name: PUBLIC_BASE_URL
+              value: https://tv.nawaa.app
+          envFrom:
+            - secretRef:
+                name: hareer-storage
+                optional: true
           volumeMounts:
             - name: catalog
               mountPath: /data
@@ -70,10 +76,10 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 64Mi
-            limits:
-              cpu: '1'
               memory: 256Mi
+            limits:
+              cpu: '2'
+              memory: 2Gi
       volumes:
         - name: catalog
           persistentVolumeClaim:

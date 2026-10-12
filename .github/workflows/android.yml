@@ -27,7 +27,12 @@ jobs:
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Test and lint
         run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug
+      - name: Install backend dependencies
+        run: python3 -m pip install -r backend/requirements.txt
+
       - name: Test catalog backend
         run: python3 -m unittest discover -s backend -p 'test_*.py'
       - name: Check landing page JavaScript
-        run: node --check site/app.js
+        run: |
+          node --check site/app.js
+          node --check site/admin/admin.js
