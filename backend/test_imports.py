@@ -110,6 +110,16 @@ class ImportTests(unittest.TestCase):
         with connect(self.db) as db:
             db.executemany('INSERT INTO videos(title,image_url,video_url) VALUES(?,?,?)',[('x','https://a.example/a','https://a.example/b')]*300)
         with self.assertRaises(ValueError): imports.enqueue(self.db,[FIRST])
+    def test_cookies_are_optional_and_copied_per_job(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp);source=path/'secret-cookies.txt';source.write_text('# Netscape HTTP Cookie File\n')
+            job=path/'job';job.mkdir()
+            with patch.dict('os.environ',{'YTDLP_COOKIES_FILE':''}): self.assertEqual(imports.cookie_args(job),[])
+            with patch.dict('os.environ',{'YTDLP_COOKIES_FILE':str(path/'missing.txt')}): self.assertEqual(imports.cookie_args(job),[])
+            with patch.dict('os.environ',{'YTDLP_COOKIES_FILE':str(source)}): args=imports.cookie_args(job)
+            self.assertEqual(args,['--cookies',str(job/'cookies.txt')])
+            self.assertEqual((job/'cookies.txt').read_text(),source.read_text())
+            self.assertEqual((job/'cookies.txt').stat().st_mode&0o777,0o600)
     @unittest.skipUnless(shutil.which('ffmpeg'),'ffmpeg unavailable')
     def test_actual_conversion_and_thumbnail_with_synthetic_source(self):
         with tempfile.TemporaryDirectory() as temp:

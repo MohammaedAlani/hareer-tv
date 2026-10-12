@@ -95,10 +95,22 @@ def run_command(args, directory, stop, timeout, failure):
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid,signal.SIGKILL); process.wait()
 
+def cookie_args(directory):
+    # YouTube asks datacenter IPs to "confirm you're not a bot"; a Netscape
+    # cookies.txt from a signed-in account gets past it. yt-dlp rewrites the
+    # file on exit, so give each job a private copy and keep the source (a
+    # read-only Secret mount) untouched. The copy dies with the job directory.
+    source=os.environ.get('YTDLP_COOKIES_FILE','').strip()
+    if not source or not os.path.isfile(source): return []
+    copy=directory/'cookies.txt'
+    shutil.copyfile(source,copy); copy.chmod(0o600)
+    return ['--cookies',str(copy)]
+
 def download(job, directory, stop):
     run_command([sys.executable,'-m','yt_dlp','--ignore-config','--no-playlist','--no-progress','--no-warnings',
         '--no-cache-dir','--socket-timeout','30','--retries','2','--fragment-retries','2',
         '--concurrent-fragments','1','--max-filesize','1G','--write-info-json','--js-runtimes','node',
+        *cookie_args(directory),
         '--match-filter','!is_live & !is_upcoming & duration <= 3600',
         '-f','bv*[height<=720][vcodec^=avc1]+ba[acodec^=mp4a]/b[height<=720][ext=mp4]/bv*[height<=720]+ba/b[height<=720]',
         '--merge-output-format','mp4','-o',str(directory/'source.%(ext)s'),'--',job['source_url']],

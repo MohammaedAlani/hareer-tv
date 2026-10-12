@@ -47,6 +47,25 @@ Keep **one replica**, `Recreate`, and the `/data` PVC. Downloads use `/data/impo
 
 After applying the Secret and GitOps environment/resource changes, restart or roll out the deployment. The Docker image includes pinned yt-dlp, its bundled EJS dependency, Node.js, FFmpeg, and boto3. The APK remains the existing locally built release; no Android rebuild is necessary.
 
+## YouTube cookies (required on datacenter IPs)
+
+YouTube refuses downloads from most cloud and datacenter IPs with "Sign in to confirm you're not a bot". Every import then fails with "YouTube could not provide this video". The worker can send cookies from a signed-in YouTube session to get past this.
+
+1. Use a **spare Google account**, not your personal one. YouTube can flag or limit accounts used for automated downloads.
+2. In a private/incognito window, sign in to that account on youtube.com, then export cookies for `youtube.com` in Netscape `cookies.txt` format (for example with a "Get cookies.txt LOCALLY" browser extension). Close the private window afterwards without signing out, so the session stays valid.
+3. Store the file in the cluster. Never commit it:
+
+```sh
+kubectl -n hareer-tv create secret generic hareer-youtube-cookies \
+  --from-file=cookies.txt=.private/youtube-cookies.txt \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n hareer-tv rollout restart deployment/hareer-tv
+```
+
+The deployment mounts this optional Secret and sets `YTDLP_COOKIES_FILE` to the mounted file. Without the variable or the file, imports run without cookies. Each job copies the cookies into its own temporary directory, because yt-dlp rewrites the file. The Secret itself is never modified.
+
+Cookies expire, typically after a few weeks, or sooner if you sign out of that session. When imports start failing again with the same message, export a fresh `cookies.txt`, re-run the commands above, then use **Retry** on the failed jobs.
+
 ## Submit links
 
 Open **https://tv.nawaa.app/admin** and sign in using the existing administrator token. Paste one link per line, then choose **Add to queue**. The token stays only in the browser tab's memory; it is not saved to browser storage.
