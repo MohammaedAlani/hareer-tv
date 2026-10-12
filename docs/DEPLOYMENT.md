@@ -5,7 +5,8 @@ The deployment serves:
 | Path | Purpose |
 | --- | --- |
 | `/` | Hareer TV landing page and TV installation guide |
-| `/downloads/hareer-tv-1.0.0.apk` | Exact signed APK downloaded from GitHub Releases during the container build |
+| `/downloads/hareer-tv-1.1.0.apk` | Exact signed APK downloaded from GitHub Releases during the container build |
+| `/downloads/update.json` | Version code, HTTPS APK URL, and SHA-256 used by the TV updater |
 | `/downloads/SHA256SUMS.txt` | APK checksum |
 | `/videos.json` | Public catalog read by the official APK |
 | `/api/admin/videos` | Bearer-token-protected catalog management |
@@ -138,7 +139,7 @@ Every added entry is immediately in the public catalog; there is no separate app
 ```sh
 curl --fail https://tv.nawaa.app/healthz
 curl --fail https://tv.nawaa.app/videos.json
-curl --fail -o hareer-tv-1.0.0.apk https://tv.nawaa.app/downloads/hareer-tv-1.0.0.apk
+curl --fail -o hareer-tv-1.1.0.apk https://tv.nawaa.app/downloads/hareer-tv-1.1.0.apk
 curl --fail -O https://tv.nawaa.app/downloads/SHA256SUMS.txt
 sha256sum -c SHA256SUMS.txt
 ```

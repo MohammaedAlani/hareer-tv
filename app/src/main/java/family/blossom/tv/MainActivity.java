@@ -25,6 +25,7 @@ public final class MainActivity extends Activity {
     private VideoView player;
     private Catalog.Video current;
     private Dialog puzzle;
+    private AppUpdate updates;
     private int generation, selectedIndex, position;
     private boolean prepared, backgrounded, resumePlayback;
     private TextView playButton;
@@ -43,6 +44,7 @@ public final class MainActivity extends Activity {
             android.util.Log.w("HareerTV", "Kiosk configuration is unavailable", error);
             Toast.makeText(this, "Kiosk setup needs repair. The Home button may leave the app.", Toast.LENGTH_LONG).show();
         }
+        updates = new AppUpdate(this);
         showLibrary();
         loadCatalog();
     }
@@ -86,6 +88,7 @@ public final class MainActivity extends Activity {
         TextView brand = text("✿  Hareer TV", 23, ROSE); brand.setTypeface(null, Typeface.BOLD);
         top.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1));
         top.addView(button("↻  Refresh", this::loadCatalog));
+        top.addView(button("Update", () -> showPuzzle("Grown-up update check", updates::check)));
         TextView exit = button("Exit  ☆", this::showPuzzle);
         LinearLayout.LayoutParams exitParams = new LinearLayout.LayoutParams(-2, -2); exitParams.leftMargin = dp(12);
         top.addView(exit, exitParams); page.addView(top);
@@ -222,6 +225,15 @@ public final class MainActivity extends Activity {
     }
 
     private void showPuzzle() {
+        showPuzzle("Ready to say bye-bye?", () -> {
+            if (player != null) player.stopPlayback();
+            android.app.ActivityManager manager = getSystemService(android.app.ActivityManager.class);
+            if (manager.getLockTaskModeState() != android.app.ActivityManager.LOCK_TASK_MODE_NONE) stopLockTask();
+            finishAndRemoveTask();
+        });
+    }
+
+    private void showPuzzle(String heading, Runnable approved) {
         if (puzzle != null) return;
         resumePlayback = player != null && player.isPlaying();
         if (player != null) player.pause();
@@ -229,17 +241,14 @@ public final class MainActivity extends Activity {
         Dialog dialog = new Dialog(this); puzzle = dialog; dialog.setCancelable(false);
         LinearLayout panel = column(); panel.setGravity(Gravity.CENTER); panel.setPadding(dp(32),dp(26),dp(32),dp(26)); panel.setBackground(rounded(0xFFFFF8F4,0));
         TextView eyebrow = text("ONE LITTLE PUZZLE", 13, ROSE); eyebrow.setGravity(Gravity.CENTER); eyebrow.setLetterSpacing(.12f); panel.addView(eyebrow);
-        TextView title = text("Ready to say bye-bye?",27,INK); title.setGravity(Gravity.CENTER); title.setTypeface(null,Typeface.BOLD); panel.addView(title);
+        TextView title = text(heading,27,INK); title.setGravity(Gravity.CENTER); title.setTypeface(null,Typeface.BOLD); panel.addView(title);
         TextView stars = text(String.join("  ", Collections.nCopies(answer,"★")),38,0xFFC18320); stars.setGravity(Gravity.CENTER); stars.setPadding(0,dp(20),0,dp(15)); panel.addView(stars);
         TextView prompt = text("How many stars can you count?",18,INK); prompt.setGravity(Gravity.CENTER); panel.addView(prompt);
         LinearLayout choices = row(); choices.setGravity(Gravity.CENTER); choices.setPadding(0,dp(18),0,dp(12));
         List<Integer> answers = new ArrayList<>(Arrays.asList(answer,answer-1,answer+1)); Collections.shuffle(answers,random);
         for (int value : answers) {
             TextView choice = button(Integer.toString(value), () -> {
-                if (value == answer) { puzzle=null; dialog.dismiss(); if (player!=null) player.stopPlayback();
-                    android.app.ActivityManager manager = getSystemService(android.app.ActivityManager.class);
-                    if (manager.getLockTaskModeState() != android.app.ActivityManager.LOCK_TASK_MODE_NONE) stopLockTask();
-                    finishAndRemoveTask();
+                if (value == answer) { puzzle=null; dialog.dismiss(); approved.run();
                 } else { prompt.setText("Almost! Count the stars and try again."); }
             });
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(90),dp(58)); p.setMargins(dp(6),0,dp(6),0); choices.addView(choice,p);
@@ -263,7 +272,11 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onPause() { super.onPause(); backgrounded=true; if (player!=null) { player.pause(); if (playButton!=null) playButton.setText("▶  Play"); } }
     @Override protected void onResume() { super.onResume(); backgrounded=false; immersive(); }
-    @Override protected void onDestroy() { if (puzzle!=null) { puzzle.dismiss(); puzzle=null; } if (player!=null) player.stopPlayback(); io.shutdownNow(); super.onDestroy(); }
+    @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request == AppUpdate.PERMISSION || request == AppUpdate.INSTALL) updates.result(request);
+    }
+    @Override protected void onDestroy() { if (updates != null) updates.close(); if (puzzle!=null) { puzzle.dismiss(); puzzle=null; } if (player!=null) player.stopPlayback(); io.shutdownNow(); super.onDestroy(); }
 
     private final class Garden extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);

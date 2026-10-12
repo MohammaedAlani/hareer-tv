@@ -1,6 +1,7 @@
 {
-  "version": "1.0.0",
-  "filename": "hareer-tv-1.0.0.apk",
-  "url": "https://github.com/MohammaedAlani/hareer-tv/releases/download/v1.0.0/hareer-tv-1.0.0.apk",
-  "sha256": "4ecb3f975723b69e187f753c706a12679bbe84a21ec87fe8b66cf51db22614c2"
+  "version": "1.1.0",
+  "versionCode": 3,
+  "filename": "hareer-tv-1.1.0.apk",
+  "url": "https://github.com/MohammaedAlani/hareer-tv/releases/download/v1.1.0/hareer-tv-1.1.0.apk",
+  "sha256": "c35e2df2103e255e4a2f8008246b28c934b919016abe7550ddeecf3515540e96"
 }

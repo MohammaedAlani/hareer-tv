@@ -18,10 +18,10 @@ The script runs Android tests, release lint, and the release build locally, then
 
 1. Increment `versionCode` and `versionName` in `app/build.gradle`.
 2. Run the local release script and verify the APK signature using the SDK's `apksigner verify --verbose`.
-3. Update `deploy/apk.json` with that artifact's version, filename, GitHub Release URL, and SHA-256. Update the landing page download/install text and deployment docs for that version.
-4. Test the backend and landing page, review changes, and commit/push to `main`.
-5. Tag that source commit, then create a GitHub Release with the locally built APK and checksum file. Do not overwrite an existing version with different bytes or a new signing key.
-6. Build the server container from the pushed source commit. Its asset stage downloads and verifies the release APK; it never invokes Gradle.
+3. Update `deploy/apk.json` with that artifact's version, **versionCode**, filename, GitHub Release URL, and SHA-256 (copy the generated `dist/apk.json`). Update the landing page download/install text and deployment docs for that version.
+4. Test the backend and landing page, review changes, and commit locally.
+5. Tag that source commit, push **the tag first**, then create a GitHub Release with the locally built APK and checksum file. Do not overwrite an existing version with different bytes or a new signing key.
+6. Push `main` after the release assets exist. This starts the server pipeline. Its asset stage downloads and verifies the release APK and generates `/downloads/update.json`; it never invokes Gradle.
 
 Example for a new version (replace `VERSION` throughout):
 
@@ -30,6 +30,7 @@ git tag -a vVERSION -m 'Hareer TV VERSION'
 git push origin vVERSION
 gh release create vVERSION dist/hareer-tv-VERSION.apk dist/SHA256SUMS.txt \
   --verify-tag --title 'Hareer TV VERSION' --notes-file .private/release-notes.md
+git push origin main
 ```
 
 The earlier development APK was signed with a debug key. Installing this release over that debug build may fail with an incompatible-signature error. Uninstall the test build first if appropriate; this removes its local data. Do not uninstall or deprovision a managed device without its administrator's instructions. Subsequent releases must use the same release key and a larger version code.

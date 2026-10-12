@@ -40,7 +40,7 @@ def make_handler(database, site, admin_token, storage=None):
             super().__init__(*args, directory=str(site), **kwargs)
 
         def end_headers(self):
-            if urlsplit(getattr(self,'path','')).path.startswith('/admin'):
+            if urlsplit(getattr(self,'path','')).path.startswith('/admin') or urlsplit(getattr(self,'path','')).path == '/downloads/update.json':
                 self.send_header('Cache-Control','no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')

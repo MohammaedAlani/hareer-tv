@@ -19,7 +19,7 @@ This repository contains the **Android app, a landing page, and a small SQLite c
 
 [Import links & configure S3](docs/IMPORTS.md) · [Admin page](https://tv.nawaa.app/admin)
 
-[Download the signed APK](https://github.com/MohammaedAlani/hareer-tv/releases/latest) · [Deploy to Kubernetes](docs/DEPLOYMENT.md) · [Build releases locally](docs/RELEASING.md)
+[Download the signed APK](https://github.com/MohammaedAlani/hareer-tv/releases/latest) · [Deploy to Kubernetes](docs/DEPLOYMENT.md) · [Build releases locally](docs/RELEASING.md) · [In-app updates](docs/UPDATES.md)
 
 The official APK reads `https://tv.nawaa.app/videos.json`. The landing page for that domain is in `site/`; it deploys automatically from `main` (see [deployment](docs/DEPLOYMENT.md)).
 

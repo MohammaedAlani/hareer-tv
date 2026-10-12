@@ -33,6 +33,14 @@ class CatalogServerTest(unittest.TestCase):
         code,headers,body=self.request('/videos.json')
         self.assertEqual(code,200); self.assertEqual(json.loads(body),{'videos':[]}); self.assertEqual(headers['Cache-Control'],'no-store')
         self.assertEqual(self.request('/')[2],b'Hareer TV')
+    def test_update_manifest_is_public_and_not_cached(self):
+        downloads=self.site/'downloads'; downloads.mkdir()
+        (downloads/'update.json').write_text('{"versionCode":3}')
+        code,headers,body=self.request('/downloads/update.json')
+        self.assertEqual(code,200)
+        self.assertEqual(json.loads(body)['versionCode'],3)
+        self.assertEqual(headers['Cache-Control'],'no-store')
+        self.assertEqual(self.request('/downloads/update.json','HEAD')[2],b'')
     def test_auth_required(self):
         self.assertEqual(self.request('/api/admin/videos')[0],401)
         self.assertEqual(self.request('/api/admin/videos','POST',self.video())[0],401)
