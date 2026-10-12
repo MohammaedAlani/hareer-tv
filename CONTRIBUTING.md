@@ -8,12 +8,17 @@ Use JDK 17 and Android SDK 35. Fork the repository, create a branch, and follow 
 - `app/src/main/res/`: theme, launcher artwork, and device-admin configuration.
 - `app/src/test/`: catalog unit tests.
 - `examples/videos.json`: backend response contract.
+- `backend/`: Python standard-library catalog API backed by SQLite.
+- `site/`: buildless landing page.
+- `deploy/`: pinned APK metadata and Kubernetes template.
 
 Before opening a pull request, run:
 
 ```sh
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 ```
+
+Run `python3 -m unittest discover -s backend -p 'test_*.py'` for backend changes and `node --check site/app.js` for landing-page JavaScript. APK releases are built locally, never by GitHub Actions.
 
 Add focused tests when behavior changes. For UI changes, also exercise the D-pad and provide a screenshot. For playback changes, use media you own or are permitted to use; check pause/resume, Back, failed playback, and leaving/reopening the app. For kiosk changes, use a disposable emulator or dedicated test device and verify both Home blocking and exit after solving the puzzle.
 

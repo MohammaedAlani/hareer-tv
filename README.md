@@ -4,7 +4,7 @@ A simple Android TV app for a family's hand-picked videos. Children choose a pic
 
 Built with a soft pink, lavender, and mint design, large picture cards, and TV-remote navigation.
 
-[![Android build](https://github.com/MohammaedAlani/hareer-tv/actions/workflows/android.yml/badge.svg)](https://github.com/MohammaedAlani/hareer-tv/actions/workflows/android.yml)
+[![Android checks](https://github.com/MohammaedAlani/hareer-tv/actions/workflows/android.yml/badge.svg)](https://github.com/MohammaedAlani/hareer-tv/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## What it does
@@ -15,7 +15,11 @@ Built with a soft pink, lavender, and mint design, large picture cards, and TV-r
 - Asks a simple “how many stars?” puzzle before exiting through the app.
 - Supports Android lock-task mode on appropriately configured devices.
 
-This repository contains the **Android app**, not a backend or a video downloader. You supply the catalog, images, and video files. No videos are bundled. It does not play YouTube watch-page links.
+This repository contains the **Android app, a landing page, and a small SQLite catalog backend**. You supply the video files and images through S3 or another media host. No videos or video downloader are bundled. It does not play YouTube watch-page links.
+
+[Download the signed APK](https://github.com/MohammaedAlani/hareer-tv/releases/latest) · [Deploy to Kubernetes](docs/DEPLOYMENT.md) · [Build releases locally](docs/RELEASING.md)
+
+The official APK reads `https://tv.nawaa.app/videos.json`. The landing page for that domain is in `site/`; its deployment is managed separately by the operator.
 
 ## Preview
 
@@ -53,6 +57,8 @@ The app appears as **Hareer TV** in the launcher. Its internal package ID remain
 Without `catalogUrl`, the app opens to the empty setup screen. The endpoint is configured at build time; there is no server-settings screen for children to change. The APK itself does not need a local SQLite database.
 
 ## Connect your backend
+
+An optional backend is included in `backend/`. It stores video metadata in SQLite, exposes this catalog format, and provides token-protected add/update/delete APIs. See [deployment and API instructions](docs/DEPLOYMENT.md).
 
 Return an HTTP 200 JSON response with `Content-Type: application/json`:
 
@@ -105,9 +111,9 @@ An ordinary Android app cannot block Home or all system shortcuts. Preventing Ho
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 ```
 
-GitHub Actions runs these checks for pushes and pull requests. CI builds without a catalog endpoint; it does not connect to a private server or publish an APK.
+GitHub Actions runs Android unit tests/lint, backend tests, and JavaScript syntax checks for pushes and pull requests. **APK builds and signing happen on the maintainer’s machine, never in GitHub Actions.** The server image downloads the exact APK from GitHub Releases and verifies its checksum. See [the release workflow](docs/RELEASING.md).
 
-For a release build, supply your HTTPS endpoint and configure your own signing key using Android Studio's **Generate Signed Bundle / APK** flow. The repository contains no release signing keys. Keep keys, passwords, and private endpoints out of commits. Debug APKs are intended for development.
+For a signed release build, run `python3 scripts/build-release.py` with JDK 17 configured. The script keeps signing material outside the repository. See [RELEASING.md](docs/RELEASING.md) before publishing. Debug APKs are intended for development.
 
 The current version has five catalog unit tests. Playback, remote navigation, puzzle behavior, and provisioned kiosk mode have been exercised on an Android 35 emulator with a 1280×720 display. Physical TV and vendor-specific remote behavior still need testing. The interface is currently English-only.
 

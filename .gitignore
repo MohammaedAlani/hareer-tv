@@ -27,3 +27,10 @@ keystore.properties
 
 # Early development screenshots (current public images live in docs/images)
 preview/
+
+# Local release and website verification artifacts
+dist/
+.private/
+site/downloads/
+__pycache__/
+*.pyc
