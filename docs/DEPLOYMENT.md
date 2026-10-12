@@ -16,13 +16,17 @@ The official APK uses `https://tv.nawaa.app/videos.json`. The first catalog is e
 ## Release flow
 
 1. Build and sign the APK **on the maintainer's machine** with `scripts/build-release.py`.
-2. Push the source commit/tag and upload the APK plus `SHA256SUMS.txt` to a GitHub Release.
-3. On your deployment machine/server, pull that source commit and build the Docker image. It fetches the already-built APK from GitHub and checks the SHA-256 in `deploy/apk.json`.
-4. Push the container to your registry and apply the Kubernetes configuration.
+2. Upload the APK plus `SHA256SUMS.txt` to a GitHub Release, and update the version, URL, and checksum in `deploy/apk.json`.
+3. Push to `main`. The `Deploy server` workflow (`.github/workflows/deploy.yml`) runs the backend tests, builds the server image, and pushes it to Harbor as `registry.cloudfares.net/hareer-tv/app:prod-<commit>`. The image build fetches the APK from GitHub and fails if its SHA-256 does not match `deploy/apk.json`.
+4. The workflow then commits the new image tag to `apps/hareer-tv/10-app.yaml` on the `prod` branch of `cloudfares-platform`, and Argo CD rolls it out to `tv.nawaa.app`.
 
-GitHub Actions runs tests and lint only. It does not build, sign, or upload APKs, create releases, build container images, or deploy to Kubernetes.
+The workflow runs only when the server-side files change (`Dockerfile`, `backend/`, `site/`, `deploy/apk.json`, `scripts/fetch-apk.py`). Android-only commits do not redeploy. Run it by hand from the Actions tab with **Run workflow**.
 
-## Build the deployment image
+GitHub Actions never builds, signs, or uploads APKs and never creates releases. It builds only the server image, which downloads the APK you already published. The workflow needs the repository secrets `HARBOR_USER`, `HARBOR_PASS`, and `PLATFORM_DEPLOY_KEY`.
+
+## Build the deployment image by hand
+
+The workflow above normally does this. To build manually:
 
 ```sh
 git clone https://github.com/MohammaedAlani/hareer-tv.git

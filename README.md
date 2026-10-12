@@ -19,7 +19,7 @@ This repository contains the **Android app, a landing page, and a small SQLite c
 
 [Download the signed APK](https://github.com/MohammaedAlani/hareer-tv/releases/latest) · [Deploy to Kubernetes](docs/DEPLOYMENT.md) · [Build releases locally](docs/RELEASING.md)
 
-The official APK reads `https://tv.nawaa.app/videos.json`. The landing page for that domain is in `site/`; its deployment is managed separately by the operator.
+The official APK reads `https://tv.nawaa.app/videos.json`. The landing page for that domain is in `site/`; it deploys automatically from `main` (see [deployment](docs/DEPLOYMENT.md)).
 
 ## Preview
 
@@ -111,7 +111,7 @@ An ordinary Android app cannot block Home or all system shortcuts. Preventing Ho
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 ```
 
-GitHub Actions runs Android unit tests/lint, backend tests, and JavaScript syntax checks for pushes and pull requests. **APK builds and signing happen on the maintainer’s machine, never in GitHub Actions.** The server image downloads the exact APK from GitHub Releases and verifies its checksum. See [the release workflow](docs/RELEASING.md).
+GitHub Actions runs Android unit tests/lint, backend tests, and JavaScript syntax checks for pushes and pull requests. **APK builds and signing happen on the maintainer’s machine, never in GitHub Actions.** The server image downloads the exact APK from GitHub Releases and verifies its checksum. Pushes to `main` that change the server files deploy the website and catalog to `tv.nawaa.app` automatically. See [the release workflow](docs/RELEASING.md).
 
 For a signed release build, run `python3 scripts/build-release.py` with JDK 17 configured. The script keeps signing material outside the repository. See [RELEASING.md](docs/RELEASING.md) before publishing. Debug APKs are intended for development.
 

@@ -1,0 +1,101 @@
+# Build the server image (landing page + catalog backend), push it to Harbor,
+# then bump the image tag in cloudfares-platform@prod so ArgoCD rolls it out to
+# https://tv.nawaa.app.
+#
+# This builds the SERVER image only. The APK is still built and signed on the
+# maintainer's machine; the Dockerfile downloads the published release named in
+# deploy/apk.json and refuses to build if its SHA-256 does not match.
+#
+# Required GitHub Secrets on MohammaedAlani/hareer-tv:
+#   HARBOR_USER           robot$hareer-tv+ci-pusher
+#   HARBOR_PASS           that robot's token
+#   PLATFORM_DEPLOY_KEY   private half of the "hareer-tv CI" write deploy key on
+#                         MohammaedAlani/cloudfares-platform
+name: Deploy server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - backend/**
+      - site/**
+      - deploy/apk.json
+      - scripts/fetch-apk.py
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+# Two overlapping deploys would race on the platform-repo commit. Queue, never
+# cancel: a cancelled run can have pushed the image but not the tag bump.
+concurrency:
+  group: hareer-tv-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IMAGE: registry.cloudfares.net/hareer-tv/app
+      PLATFORM_BRANCH: prod
+      MANIFEST: apps/hareer-tv/10-app.yaml
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Test catalog backend
+        run: python3 -m unittest discover -s backend -p 'test_*.py'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      # Via the action, not `run: docker login`: the robot username contains a
+      # '$', which bash expands away inside double quotes, and Harbor then
+      # answers a bare "unauthorized" that looks like a wrong password.
+      - name: Log in to Harbor
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: registry.cloudfares.net
+          username: ${{ secrets.HARBOR_USER }}
+          password: ${{ secrets.HARBOR_PASS }}
+
+      - name: Build and push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:prod-${{ github.sha }}
+
+      - name: Bump image tag in cloudfares-platform
+        # The key is read from env, never spliced into the script as text.
+        env:
+          DEPLOY_KEY: ${{ secrets.PLATFORM_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND='ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes'
+          git clone --depth 1 --branch "$PLATFORM_BRANCH" \
+            git@github.com:MohammaedAlani/cloudfares-platform.git platform
+          cd platform
+          sed -i "s|image: ${IMAGE}:.*|image: ${IMAGE}:prod-${GITHUB_SHA}|" "$MANIFEST"
+          if git diff --quiet "$MANIFEST"; then
+            echo "Image tag already at prod-${GITHUB_SHA}; nothing to push."
+            exit 0
+          fi
+          git config user.name  "ci-bot"
+          git config user.email "ci-bot@cloudfares.net"
+          git commit -qam "hareer-tv: bump to prod-${GITHUB_SHA}"
+          # Other CI jobs push to prod too; retry on a lost race.
+          for attempt in 1 2 3; do
+            git push origin "$PLATFORM_BRANCH" && exit 0
+            git pull --rebase origin "$PLATFORM_BRANCH"
+          done
+          exit 1
