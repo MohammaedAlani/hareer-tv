@@ -1,0 +1,29 @@
+# Local Android/IDE configuration
+.gradle/
+.idea/
+local.properties
+*.iml
+.DS_Store
+
+# Generated output
+**/build/
+*.apk
+*.aab
+*.log
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Signing keys and local secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+keystore.properties
+.env
+.env.*
+!.env.example
+
+# Early development screenshots (current public images live in docs/images)
+preview/

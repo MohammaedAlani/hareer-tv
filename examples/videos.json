@@ -1,0 +1,9 @@
+{
+  "videos": [
+    {
+      "title": "My favourite story",
+      "imageUrl": "https://your-server.example/media/story.jpg",
+      "videoUrl": "https://your-server.example/media/story.mp4"
+    }
+  ]
+}
